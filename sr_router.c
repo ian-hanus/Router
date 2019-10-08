@@ -81,20 +81,45 @@ void sr_handlepacket(struct sr_instance* sr, uint8_t * packet, unsigned int len,
   } else if(ethertype(packet) == ethertype_arp){
 	  handleARP(sr, packet, len, interface);
   } else{
-	  fprintf()
+	  fprintf("Not a valid ethernet type");
   }
 }/* end sr_ForwardPacket */
 
-int handleIP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
+void handleIP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
+	fprintf("Handling IP \n");
 	if(sizeOf(sr_ethernet_hdr_t) + sizeOf(sr_ip_hdr_t) > len){
-		fprintf("Too small to be IP");
-		return -1;
+		fprintf("Too small to be IP \m");
+		return;
+	}
+
+	sr_ip_hdr_t* header = (sr_ip_hdr_t*)(packet + size(sr_ethernet_hdr_t));
+	struct sr_if* current = sr->if_list;
+	while(current != NULL){
+		if(current->ip == header->ip_dst){
+			break;
+		}
+		current = current->next;
+	}
+	if(header->ip_dst == current->ip){
+		// If packet is for current
+		if(header->ip_p != ip_protocol_icmp){
+			// not the correct protocol
+			return;
+		} else{
+			sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+			if(icmpHeader->icmp_code == 0 && icmpHeader->icmp_type == 8){
+				//send icmpCode
+			}
+		}
+	} else{
+		// If packet isn't for current
 	}
 }
 
-int handlARP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
+void handlARP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
+	fprintf("Handling ARP \n");
 	if(sizeOf(sr_ethernet_hdr_t) + sizeOf(sr_arp_hdr_t) > len){
-		fprintf("Too small to be ARP");
-		return -1;
+		fprintf("Too small to be ARP \n");
+		return;
 	}
 }
