@@ -29,6 +29,8 @@
  * Initialize the routing subsystem
  *
  *---------------------------------------------------------------------*/
+void handleIP(struct sr_instance* , uint8_t * , unsigned int , char* );
+void hanldeARP(struct sr_instance* , uint8_t * , unsigned int , char* );
 
 void sr_init(struct sr_instance* sr)
 {
@@ -81,18 +83,18 @@ void sr_handlepacket(struct sr_instance* sr, uint8_t * packet, unsigned int len,
   } else if(ethertype(packet) == ethertype_arp){
 	  handleARP(sr, packet, len, interface);
   } else{
-	  fprintf("Not a valid ethernet type");
+	  printf("Not a valid ethernet type");
   }
 }/* end sr_ForwardPacket */
 
 void handleIP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
-	fprintf("Handling IP \n");
-	if(sizeOf(sr_ethernet_hdr_t) + sizeOf(sr_ip_hdr_t) > len){
-		fprintf("Too small to be IP \m");
+	printf("Handling IP \n");
+	if(sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) > len){
+		printf("Too small to be IP \n");
 		return;
 	}
 
-	sr_ip_hdr_t* header = (sr_ip_hdr_t*)(packet + size(sr_ethernet_hdr_t));
+	sr_ip_hdr_t* header = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 	struct sr_if* current = sr->if_list;
 	while(current != NULL){
 		if(current->ip == header->ip_dst){
@@ -101,25 +103,23 @@ void handleIP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* 
 		current = current->next;
 	}
 	if(header->ip_dst == current->ip){
-		// If packet is for current
 		if(header->ip_p != ip_protocol_icmp){
-			// not the correct protocol
 			return;
 		} else{
 			sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 			if(icmpHeader->icmp_code == 0 && icmpHeader->icmp_type == 8){
-				//send icmpCode
+
 			}
 		}
 	} else{
-		// If packet isn't for current
+
 	}
 }
 
-void handlARP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
-	fprintf("Handling ARP \n");
-	if(sizeOf(sr_ethernet_hdr_t) + sizeOf(sr_arp_hdr_t) > len){
-		fprintf("Too small to be ARP \n");
+void handleARP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
+	printf("Handling ARP \n");
+	if(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t) > len){
+		printf("Too small to be ARP \n");
 		return;
 	}
 }
