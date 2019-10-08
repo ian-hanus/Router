@@ -66,10 +66,7 @@ void sr_init(struct sr_instance* sr)
  *
  *---------------------------------------------------------------------*/
 
-void sr_handlepacket(struct sr_instance* sr,
-        uint8_t * packet/* lent */,
-        unsigned int len,
-        char* interface/* lent */)
+void sr_handlepacket(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface)
 {
   /* REQUIRES */
   assert(sr);
@@ -79,6 +76,25 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("*** -> Received packet of length %d \n",len);
 
   /* fill in code here */
-
+  if(ethertype(packet) == ethertype_ip){
+	  handleIP(sr, packet, len, interface);
+  } else if(ethertype(packet) == ethertype_arp){
+	  handleARP(sr, packet, len, interface);
+  } else{
+	  fprintf()
+  }
 }/* end sr_ForwardPacket */
 
+int handleIP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
+	if(sizeOf(sr_ethernet_hdr_t) + sizeOf(sr_ip_hdr_t) > len){
+		fprintf("Too small to be IP");
+		return -1;
+	}
+}
+
+int handlARP(struct sr_instance* sr, uint8_t * packet, unsigned int len, char* interface){
+	if(sizeOf(sr_ethernet_hdr_t) + sizeOf(sr_arp_hdr_t) > len){
+		fprintf("Too small to be ARP");
+		return -1;
+	}
+}

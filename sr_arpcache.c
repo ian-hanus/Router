@@ -18,6 +18,9 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
+	// get all of sr's cache requests
+	// for each (while sr->cache != null):
+	// 		check times sent, if too great send ICMP error and destroy, else resend request
 }
 
 /* You should not need to touch the rest of this code. */
