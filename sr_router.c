@@ -143,6 +143,18 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 				}
 				else{
 					printf("DESTINGATION IN CACHE FORWARDING\n");
+
+					sr_ethernet_hdr_t* ethhdr= (sr_ethernet_hdr_t*)packet;
+					 memcpy(ethhdr->ether_dhost,destination->mac,ETHER_ADDR_LEN);
+					 memcpy(ethhdr->ether_shost,current->addr,ETHER_ADDR_LEN);
+
+					 print_hdrs(ethhdr,len);
+					 sr_send_packet(sr , ethhdr , len, current);
+					 printf("SENT\n");
+
+
+
+
 				}
 		} else{
 			printf("HELLO ICMP\n");
@@ -194,6 +206,7 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 				}else{
 					printf("NOT CLIENT\n");
 				}
+			if_walker=if_walker->next;
 		}
 	}
 	/*___________________________________TODO: ARP REPLY HANDLING___________________________________*/
@@ -206,8 +219,26 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 				printf("FOUND MATCHING INTERFACE\n");
 				struct sr_arpreq* req=sr_arpcache_insert(&(sr->cache),header->ar_sha,(header->ar_sip));
 
-				if(req!=NULL){printf("INSERTED IN CACHE\n");
-				/*TODO send queued packages + destroy request*/
+				if(req!=NULL){
+					printf("INSERTED IN CACHE\n");
+					struct sr_arpentry* arpentry=sr_arpcache_lookup(&(sr->cache), (header->ar_sip));
+					if(arpentry==NULL){printf("ERROR RETRIEVING FROM CACHE\n");}
+					/*TODO send queued packages + destroy request*/
+					struct sr_packet* packet_walker= req->packets;
+					while(packet_walker!=NULL){
+					printf("SENDING QUEUED PACKET\n");
+					sr_ethernet_hdr_t* ethhdr= (sr_ethernet_hdr_t*)packet_walker->buf;
+					memcpy(ethhdr->ether_shost,if_walker->addr,ETHER_ADDR_LEN);
+					memcpy(ethhdr->ether_dhost,arpentry->mac,ETHER_ADDR_LEN);
+					print_hdrs(ethhdr,packet_walker->len);
+					 sr_send_packet(sr , ethhdr , packet_walker->len, if_walker);
+					 printf("SENT\n");
+					 struct sr_packet* temp=packet_walker;
+					 packet_walker=packet_walker->next;
+
+					}
+					sr_arpreq_destroy(&(sr->cache),req);
+					printf("DONE forwarding\n");
 				}
 				else{printf("FAILED TO LOCATE REQUEST\n");
 				print_addr_ip_int((header->ar_sip));
