@@ -69,6 +69,7 @@ void sr_init(struct sr_instance* );
 void handleIP(struct sr_instance* , uint8_t * , unsigned int , char* );
 void hanldeARP(struct sr_instance* , uint8_t * , unsigned int , char* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
+void sendICMP(struct sr_instance* , uint8_t* , unsigned int , uint8_t , uint8_t );
 
 
 /* -- sr_if.c -- */
