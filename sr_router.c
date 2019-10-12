@@ -99,20 +99,17 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 	}
 	printf("HEADER Length OK\n");
 
-	/*TODO: add Subtracting TTl, and other modifications/sanity checks*/
-	sr_ip_hdr_t* header = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
+		/*TODO: add Subtracting TTl, and other modifications/sanity checks*/
+	sr_ip_hdr_t* header = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
 	int oldSum = header->ip_sum;
 	header->ip_sum = 0;
-	int newSum = cksum(header, sizeof(sr_ip_hdr_t*));
-	if (oldSum != newSum) {
+	if (oldSum != cksum(header, sizeof(sr_ip_hdr_t))) {
 		printf("Detected error: checksum invalid");
+		header->ip_sum = oldSum;
 		return;
 	}
-	if(header->ip_ttl == 1){
-		printf("Packet died (TTL expired). Sending ICMP Message");
-	}
-	header->ip_ttl = header->ip_ttl - 1;
-	header->ip_sum = cksum(header, sizeof(sr_ip_hdr_t*));
+	header->ip_sum = oldSum;
+
 	struct sr_if* current = sr->if_list;
     struct sr_rt* rt_walker = sr->routing_table;
     while(rt_walker!=NULL){
@@ -133,48 +130,32 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
     	rt_walker=rt_walker->next;
     }
 
-
-	/*while(current != NULL){
-		printf("CHECKING INTERFACE\n");
-		print_addr_ip_int(htonl(current->ip));
-		print_addr_ip_int(ntohl(header->ip_dst));
-		if(current->ip == ntohl(header->ip_dst)){
-			printf("FOUND MATCH\n");
-			break;
-		}
-		current = current->next;
-	}*/
 	printf("HELLO 0\n");
 	if(current!=NULL&&(header->ip_dst)==rt_walker->dest.s_addr){
-	printf("HELLO 1\n");
-		if(header->ip_p != ip_protocol_icmp){
-			printf("HELLO 2\n");
-			struct sr_arpentry* destination=sr_arpcache_lookup(&(sr->cache), header->ip_dst);
-				if(destination==NULL){
-					printf("DESTINATION NOT IN CACHE\n");
-					sr_arpcache_queuereq(&(sr->cache), header->ip_dst, packet,len, interface);
-				}
-				else{
-					printf("DESTINGATION IN CACHE FORWARDING\n");
-
-					sr_ethernet_hdr_t* ethhdr= (sr_ethernet_hdr_t*)packet;
-					 memcpy(ethhdr->ether_dhost,destination->mac,ETHER_ADDR_LEN);
-					 memcpy(ethhdr->ether_shost,current->addr,ETHER_ADDR_LEN);
-
-					 print_hdrs(ethhdr,len);
-					 sr_send_packet(sr , ethhdr , len, current);
-					 printf("SENT\n");
-
-
-
-
-				}
-		} else{
-			printf("HELLO ICMP\n");
-			sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-			if(icmpHeader->icmp_code == 0 && icmpHeader->icmp_type == 8){
-
+		printf("HELLO 1\n");
+		printf("HELLO 2\n");
+		struct sr_arpentry* destination=sr_arpcache_lookup(&(sr->cache), header->ip_dst);
+		if(destination==NULL){
+			printf("DESTINATION NOT IN CACHE\n");
+			sr_arpcache_queuereq(&(sr->cache), header->ip_dst, packet,len, interface);
+		}
+		else{
+			printf("DESTINGATION IN CACHE FORWARDING\n");
+			header->ip_ttl = header->ip_ttl - 1;
+			if(header->ip_ttl == 0){
+				printf("TTL Expired \n");
+				return;
 			}
+			header->ip_sum = 0;
+			header->ip_sum = cksum(header, sizeof(sr_ip_hdr_t));
+
+			sr_ethernet_hdr_t* ethhdr= (sr_ethernet_hdr_t*)packet;
+			memcpy(ethhdr->ether_dhost,destination->mac,ETHER_ADDR_LEN);
+			memcpy(ethhdr->ether_shost,current->addr,ETHER_ADDR_LEN);
+
+			 print_hdrs(ethhdr,len);
+			 sr_send_packet(sr , ethhdr , len, current);
+			 printf("SENT\n");
 		}
 	}
 	else{
@@ -199,7 +180,7 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 			if( header->ar_tip==if_walker->ip){
 					printf("CLIENT\n");
 					void* packetHeader=malloc(sizeof(sr_ethernet_hdr_t)+sizeof(sr_arp_hdr_t));
-					 sr_a	rp_hdr_t* arp_hdr = (sr_arp_hdr_t *)(packetHeader+sizeof(sr_ethernet_hdr_t));
+					 sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t *)(packetHeader+sizeof(sr_ethernet_hdr_t));
 					 sr_ethernet_hdr_t* etherHeader=(sr_ethernet_hdr_t*)packetHeader;
 					 memcpy(etherHeader->ether_dhost,header->ar_sha,ETHER_ADDR_LEN);
 					 memcpy(etherHeader->ether_shost,if_walker->addr,ETHER_ADDR_LEN);
@@ -231,7 +212,6 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 			if( header->ar_tip==if_walker->ip){
 				printf("FOUND MATCHING INTERFACE\n");
 				struct sr_arpreq* req=sr_arpcache_insert(&(sr->cache),header->ar_sha,(header->ar_sip));
-
 				if(req!=NULL){
 					printf("INSERTED IN CACHE\n");
 					struct sr_arpentry* arpentry=sr_arpcache_lookup(&(sr->cache), (header->ar_sip));
@@ -239,16 +219,15 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 					/*TODO send queued packages + destroy request*/
 					struct sr_packet* packet_walker= req->packets;
 					while(packet_walker!=NULL){
-					printf("SENDING QUEUED PACKET\n");
-					sr_ethernet_hdr_t* ethhdr= (sr_ethernet_hdr_t*)packet_walker->buf;
-					memcpy(ethhdr->ether_shost,if_walker->addr,ETHER_ADDR_LEN);
-					memcpy(ethhdr->ether_dhost,arpentry->mac,ETHER_ADDR_LEN);
-					print_hdrs(ethhdr,packet_walker->len);
-					 sr_send_packet(sr , ethhdr , packet_walker->len, if_walker);
-					 printf("SENT\n");
-					 struct sr_packet* temp=packet_walker;
-					 packet_walker=packet_walker->next;
-
+						printf("SENDING QUEUED PACKET\n");
+						sr_ethernet_hdr_t* ethhdr= (sr_ethernet_hdr_t*)packet_walker->buf;
+						memcpy(ethhdr->ether_shost,if_walker->addr,ETHER_ADDR_LEN);
+						memcpy(ethhdr->ether_dhost,arpentry->mac,ETHER_ADDR_LEN);
+						print_hdrs(ethhdr,packet_walker->len);
+						sr_send_packet(sr , ethhdr , packet_walker->len, if_walker);
+						printf("SENT\n");
+						struct sr_packet* temp=packet_walker;
+						packet_walker=packet_walker->next;
 					}
 					sr_arpreq_destroy(&(sr->cache),req);
 					printf("DONE forwarding\n");
@@ -262,6 +241,5 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 			if_walker=if_walker->next;
 		}
 	}
-
 
 }
