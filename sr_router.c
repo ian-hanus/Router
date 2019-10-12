@@ -197,7 +197,27 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 		}
 	}
 	/*___________________________________TODO: ARP REPLY HANDLING___________________________________*/
+	else if(header->ar_op==htons(arp_op_reply)){
+		printf("ARP REPLY RECEIVED\n");
+		struct sr_if* if_walker = 0;
+		if_walker=sr->if_list;
+		while(if_walker!=NULL){
+			if( header->ar_tip==if_walker->ip){
+				printf("FOUND MATCHING INTERFACE\n");
+				struct sr_arpreq* req=sr_arpcache_insert(&(sr->cache),header->ar_sha,(header->ar_sip));
 
+				if(req!=NULL){printf("INSERTED IN CACHE\n");
+				/*TODO send queued packages + destroy request*/
+				}
+				else{printf("FAILED TO LOCATE REQUEST\n");
+				print_addr_ip_int((header->ar_sip));
+				}
+
+				return;
+			}
+			if_walker=if_walker->next;
+		}
+	}
 
 
 }

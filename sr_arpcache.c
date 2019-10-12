@@ -10,7 +10,60 @@
 #include "sr_router.h"
 #include "sr_if.h"
 #include "sr_protocol.h"
+#include "sr_rt.h"
 
+void sendARPRequest(struct sr_instance* sr, struct sr_arpreq* req){
+	void* packetHeader=malloc(sizeof(sr_ethernet_hdr_t)+sizeof(sr_arp_hdr_t));
+	sr_ethernet_hdr_t* ehdr=(sr_ethernet_hdr_t*)packetHeader;
+    struct sr_if* current = sr->if_list;
+    struct sr_rt* rt_walker = sr->routing_table;
+    while(rt_walker!=NULL){
+    	printf("ARPCACHE CHECKING RT\n");
+    	rt_walker->dest;
+    	if((req->ip)==rt_walker->dest.s_addr){
+    		printf("FOUND MATCH\n");
+    		while(current!=NULL){
+    			printf("%s vs. %s\n",current->name,rt_walker->interface);
+    			if(strcmp(current->name,rt_walker->interface)==0){
+    				printf("FOUND MATCHING INTERFACE\n");
+    				break;
+    			}
+    			current=current->next;
+    		}
+    		break;
+    	}
+    	rt_walker=rt_walker->next;
+    }
+    memcpy(ehdr->ether_shost,current->addr,ETHER_ADDR_LEN);
+    ehdr->ether_dhost[0]=0xFF;
+    ehdr->ether_dhost[1]=0xFF;
+    ehdr->ether_dhost[2]=0xFF;
+    ehdr->ether_dhost[3]=0xFF;
+    ehdr->ether_dhost[4]=0xFF;
+    ehdr->ether_dhost[5]=0xFF;
+    ehdr->ether_type=htons(ethertype_arp);
+    printf("COMPOSED ETHERNET HEADER\n");
+    sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t *)(packetHeader+sizeof(sr_ethernet_hdr_t));
+    arp_hdr->ar_hrd=htons(1);
+    arp_hdr->ar_pro=htons(0x800);
+    arp_hdr->ar_hln=(ETHER_ADDR_LEN);
+    arp_hdr->ar_pln=(4);
+    arp_hdr->ar_op=htons(arp_op_request);
+    memcpy(arp_hdr->ar_sha,current->addr,ETHER_ADDR_LEN);
+    arp_hdr->ar_sip=current->ip;
+    arp_hdr->ar_tha[0]=0x00;
+    arp_hdr->ar_tha[1]=0x00;
+    arp_hdr->ar_tha[2]=0x00;
+    arp_hdr->ar_tha[3]=0x00;
+    arp_hdr->ar_tha[4]=0x00;
+    arp_hdr->ar_tha[5]=0x00;
+    arp_hdr->ar_tip=req->ip;
+    printf("COMPOSED ARP HEADER\n");
+    print_hdrs(packetHeader,sizeof(sr_ethernet_hdr_t)+sizeof(sr_arp_hdr_t));
+    printf("SENDING\n");
+    sr_send_packet(sr , packetHeader , sizeof(sr_ethernet_hdr_t)+sizeof(sr_arp_hdr_t), current);
+
+}
 /*
   This function gets called every second. For each request sent out, we keep
   checking whether we should resend an request or destroy the arp request.
@@ -28,6 +81,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 				printf("DELETED\n");
 			}else{
 				printf("RESENDING\n");
+				sendARPRequest(sr,req);
 				req->times_sent++;
 			}
 		}
