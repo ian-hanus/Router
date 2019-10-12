@@ -160,7 +160,6 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 	}
 	else{
 		printf("HELLO 3\n");
-
 	}
 }
 
@@ -240,6 +239,34 @@ void handleARP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* 
 			}
 			if_walker=if_walker->next;
 		}
+	}
+}
+
+void sendICMP(struct sr_instance* sr, uint8_t* packet, unsigned int len, uint8_t type, uint8_t code){
+
+	if(type == 0){
+		/* Echo reply */
+		sr_ip_hdr_t* ipHeader = (sr_ip_hdr_t *)(packet);
+		uint32_t* destination = ipHeader->ip_dst;
+		ipHeader->ip_dst = ipHeader->ip_src;
+		ipHeader->ip_src = destination;
+
+	} else if(type == 3 && code == 0){
+		/* Destination net unreachable */
+
+	} else if(type == 3 && code == 1){
+		/* Destination host unreachable */
+
+	} else if(type == 3 && code == 1){
+		/* Port unreachable */
+
+	} else if(type == 11 && code == 0){
+		/* Time exceeded */
+
+
+	} else{
+		printf("Not valid ICMP code and type pairing");
+		return;
 	}
 
 }
