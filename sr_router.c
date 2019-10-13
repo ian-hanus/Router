@@ -171,7 +171,6 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 				printf("HELLO ICMP\n");
 				sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 				if(icmpHeader->icmp_code == 0 && icmpHeader->icmp_type == 8){
-
 				}
 			}*/
 		}
@@ -216,8 +215,50 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 				 if_walker=if_walker->next;
 			 }
 		}else{
-			/*ERROR WITH PACKET*/
-			printf("ERROR WITH PACKET\n");
+			/*NET UNREACHABLE*/
+			printf("NET UNREACHABLE\n");
+			void* errPacket=malloc(sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+			sr_ethernet_hdr_t* ethhdr= (sr_ethernet_hdr_t*)packet;
+			sr_ethernet_hdr_t* errEthHdr=(sr_ethernet_hdr_t*)errPacket;
+			 struct sr_if* if_walker = sr->if_list;
+
+			 while(if_walker!=NULL){
+				 printf("%s vs. %s\n",if_walker->addr,ethhdr->ether_dhost);
+				 if(strcmp(if_walker->addr,ethhdr->ether_dhost)==0){
+					 printf("FOUND MATCHING INTERFACE\n");
+					 break;
+				 }
+				 if_walker=if_walker->next;
+			}
+
+			 memcpy(errEthHdr->ether_dhost,ethhdr->ether_shost,ETHER_ADDR_LEN);
+			 memcpy(errEthHdr->ether_shost,ethhdr->ether_dhost,ETHER_ADDR_LEN);
+			 errEthHdr->ether_type=htons(ethertype_ip);
+			 sr_ip_hdr_t* errIPhdr=(sr_ip_hdr_t*)(errPacket+sizeof(sr_ethernet_hdr_t));
+			 memcpy(errIPhdr,header,sizeof(sr_ip_hdr_t));
+			 errIPhdr->ip_p=ip_protocol_icmp;
+			 errIPhdr->ip_len=sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t);
+			 errIPhdr->ip_dst=header->ip_src;
+			 errIPhdr->ip_src=header->ip_dst;
+			 sr_icmp_t3_hdr_t* icmpHdr=(sr_icmp_t3_hdr_t*)(errPacket+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+			 icmpHdr->icmp_code=0;
+			 icmpHdr->icmp_type=3;
+			 icmpHdr->icmp_sum=0;
+			 memcpy(icmpHdr->data,header,ICMP_DATA_SIZE);
+			 icmpHdr->icmp_sum=cksum(icmpHdr,sizeof(sr_icmp_t3_hdr_t));
+			 printf("MADE HEADER\n");
+			 errIPhdr->ip_sum=0;
+			 errIPhdr->ip_sum=cksum(errIPhdr,sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+			 print_hdrs(errPacket,sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+
+			 sr_send_packet(sr , errPacket , sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t), interface);
+
+
+			 printf("SENT\n");
+			 return;
+
+
+
 		}
 
 
