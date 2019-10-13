@@ -110,10 +110,24 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 	header->ip_sum = oldSum;
 
 	header->ip_ttl = header->ip_ttl - 1;
-									if(header->ip_ttl == 0){
-										printf("TTL Expired \n");
-										return;
-									}
+	printf("-----------------------------------------------------------------\n");
+	if(header->ip_ttl <= 0){
+		printf("TTL Expired \n");
+		struct sr_rt* rt_walker = sr->routing_table;
+		 while(rt_walker!=NULL){
+		    	printf("CHECKING RT\n");
+		    	printf("%s\n",inet_ntoa(rt_walker->dest));
+		    	if((header->ip_dst)==rt_walker->dest.s_addr){
+		    		printf("FOUND INTERFACE\n");
+		    		return;
+		    	}
+		    	rt_walker=rt_walker->next;
+		 }
+
+
+		}
+	printf("-----------------------------------------------------------------\n");
+
 									header->ip_sum = 0;
 									header->ip_sum = cksum(header, sizeof(sr_ip_hdr_t));
 
@@ -273,7 +287,7 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 						 errIPhdr->ip_dst=header->ip_src;
 						 errIPhdr->ip_src=header->ip_dst;
 						 sr_icmp_t3_hdr_t* icmpHdr=(sr_icmp_t3_hdr_t*)(errPacket+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-						 icmpHdr->icmp_code=0;
+						 icmpHdr->icmp_code=3;
 						 icmpHdr->icmp_type=3;
 						 icmpHdr->icmp_sum=0;
 						 memcpy(icmpHdr->data,header,ICMP_DATA_SIZE);
@@ -299,7 +313,7 @@ void handleIP(struct sr_instance* sr, uint8_t *packet, unsigned int len, char* i
 							 errIPhdr->ip_dst=header->ip_src;
 							 errIPhdr->ip_src=header->ip_dst;
 							 sr_icmp_t3_hdr_t* icmpHdr=(sr_icmp_t3_hdr_t*)(errPacket+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-							 icmpHdr->icmp_code=3;
+							 icmpHdr->icmp_code=0;
 							 icmpHdr->icmp_type=3;
 							 icmpHdr->icmp_sum=0;
 							 memcpy(icmpHdr->data,header,ICMP_DATA_SIZE);
